@@ -1,0 +1,495 @@
+import streamlit as st
+import colorsys
+import math
+
+# ---------------------------------------------------------
+# PAGE CONFIGURATION
+# ---------------------------------------------------------
+
+st.set_page_config(
+    page_title="Colour Matching Tool",
+    page_icon="🎨",
+    layout="wide",
+)
+
+# ---------------------------------------------------------
+# COLOUR DATABASE
+# ---------------------------------------------------------
+
+COLOR_DATABASE = {
+    "Black": "#000000",
+    "White": "#FFFFFF",
+    "Red": "#FF0000",
+    "Green": "#008000",
+    "Blue": "#0000FF",
+    "Yellow": "#FFFF00",
+    "Cyan": "#00FFFF",
+    "Magenta": "#FF00FF",
+    "Orange": "#FFA500",
+    "Purple": "#800080",
+    "Pink": "#FFC0CB",
+    "Brown": "#A52A2A",
+    "Gray": "#808080",
+    "Silver": "#C0C0C0",
+    "Maroon": "#800000",
+    "Olive": "#808000",
+    "Lime": "#00FF00",
+    "Navy": "#000080",
+    "Teal": "#008080",
+    "Aqua": "#00FFFF",
+    "Fuchsia": "#FF00FF",
+    "Gold": "#FFD700",
+    "Coral": "#FF7F50",
+    "Tomato": "#FF6347",
+    "Salmon": "#FA8072",
+    "Crimson": "#DC143C",
+    "Violet": "#EE82EE",
+    "Indigo": "#4B0082",
+    "Plum": "#DDA0DD",
+    "Lavender": "#E6E6FA",
+    "Orchid": "#DA70D6",
+    "Turquoise": "#40E0D0",
+    "Aquamarine": "#7FFFD4",
+    "Sky Blue": "#87CEEB",
+    "Light Blue": "#ADD8E6",
+    "Steel Blue": "#4682B4",
+    "Royal Blue": "#4169E1",
+    "Dodger Blue": "#1E90FF",
+    "Deep Sky Blue": "#00BFFF",
+    "Dark Blue": "#00008B",
+    "Dark Green": "#006400",
+    "Forest Green": "#228B22",
+    "Sea Green": "#2E8B57",
+    "Spring Green": "#00FF7F",
+    "Mint": "#98FF98",
+    "Dark Red": "#8B0000",
+    "Firebrick": "#B22222",
+    "Khaki": "#F0E68C",
+    "Beige": "#F5F5DC",
+    "Tan": "#D2B48C",
+    "Wheat": "#F5DEB3",
+    "Ivory": "#FFFFF0",
+    "Cream": "#FFFDD0",
+    "Chocolate": "#D2691E",
+    "Sienna": "#A0522D",
+    "Peru": "#CD853F",
+    "Sandy Brown": "#F4A460",
+    "Dark Orange": "#FF8C00",
+    "Peach": "#FFE5B4",
+    "Hot Pink": "#FF69B4",
+    "Deep Pink": "#FF1493",
+    "Rose": "#FF007F",
+    "Burgundy": "#800020",
+    "Wine": "#722F37",
+    "Mauve": "#E0B0FF",
+    "Lilac": "#C8A2C8",
+}
+
+# ---------------------------------------------------------
+# HELPER FUNCTIONS
+# ---------------------------------------------------------
+
+def hex_to_rgb(hex_color):
+    """Convert HEX colour to RGB."""
+    hex_color = hex_color.lstrip("#")
+
+    if len(hex_color) == 3:
+        hex_color = "".join(char * 2 for char in hex_color)
+
+    return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def rgb_to_hex(rgb):
+    """Convert RGB tuple to HEX."""
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
+
+
+def rgb_to_hsl(rgb):
+    """Convert RGB to HSL."""
+    r, g, b = [value / 255 for value in rgb]
+
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+
+    return (
+        round(h * 360),
+        round(s * 100),
+        round(l * 100),
+    )
+
+
+def hex_to_hsl(hex_color):
+    """Convert HEX to HSL."""
+    return rgb_to_hsl(hex_to_rgb(hex_color))
+
+
+def color_distance(rgb1, rgb2):
+    """
+    Calculate Euclidean distance between two RGB colours.
+    Lower value = more similar colour.
+    """
+    return math.sqrt(
+        sum((a - b) ** 2 for a, b in zip(rgb1, rgb2))
+    )
+
+
+def find_matching_colors(hex_color, number=5):
+    """Find nearest colours from the colour database."""
+
+    target_rgb = hex_to_rgb(hex_color)
+
+    matches = []
+
+    for name, color_hex in COLOR_DATABASE.items():
+        distance = color_distance(
+            target_rgb,
+            hex_to_rgb(color_hex)
+        )
+
+        matches.append(
+            (name, color_hex, distance)
+        )
+
+    matches.sort(key=lambda x: x[2])
+
+    return matches[:number]
+
+
+def hsl_to_hex(h, s, l):
+    """Convert HSL to HEX."""
+
+    h = h / 360
+    s = s / 100
+    l = l / 100
+
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+
+    return rgb_to_hex(
+        (
+            round(r * 255),
+            round(g * 255),
+            round(b * 255),
+        )
+    )
+
+
+def generate_palette(hex_color):
+    """Generate a colour harmony palette."""
+
+    h, s, l = hex_to_hsl(hex_color)
+
+    return {
+        "Original": hex_color,
+        "Complementary": hsl_to_hex((h + 180) % 360, s, l),
+        "Analogous 1": hsl_to_hex((h + 30) % 360, s, l),
+        "Analogous 2": hsl_to_hex((h - 30) % 360, s, l),
+        "Triadic 1": hsl_to_hex((h + 120) % 360, s, l),
+        "Triadic 2": hsl_to_hex((h + 240) % 360, s, l),
+        "Lighter": hsl_to_hex(h, s, min(l + 20, 100)),
+        "Darker": hsl_to_hex(h, s, max(l - 20, 0)),
+    }
+
+
+def is_valid_hex(value):
+    """Check whether a value is a valid HEX colour."""
+
+    value = value.strip().replace("#", "")
+
+    if len(value) not in (3, 6):
+        return False
+
+    try:
+        int(value, 16)
+        return True
+    except ValueError:
+        return False
+
+
+# ---------------------------------------------------------
+# CUSTOM CSS
+# ---------------------------------------------------------
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 42px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666666;
+        font-size: 18px;
+        margin-bottom: 30px;
+    }
+
+    .color-card {
+        padding: 20px;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .color-value {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------
+# HEADER
+# ---------------------------------------------------------
+
+st.markdown(
+    '<div class="main-title">🎨 Colour Matching Tool</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'Find matching colours, colour names, RGB, HEX, HSL and colour palettes.'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------
+# SIDEBAR
+# ---------------------------------------------------------
+
+st.sidebar.header("🎨 Colour Selection")
+
+input_method = st.sidebar.radio(
+    "Choose input method:",
+    [
+        "Colour Picker",
+        "HEX Code",
+    ],
+)
+
+if input_method == "Colour Picker":
+
+    selected_color = st.sidebar.color_picker(
+        "Select a colour",
+        "#3498DB",
+    )
+
+else:
+
+    selected_color = st.sidebar.text_input(
+        "Enter HEX colour",
+        "#3498DB",
+    )
+
+    if not selected_color.startswith("#"):
+        selected_color = "#" + selected_color
+
+# ---------------------------------------------------------
+# VALIDATION
+# ---------------------------------------------------------
+
+if not is_valid_hex(selected_color):
+
+    st.error(
+        "Please enter a valid HEX colour, for example #3498DB."
+    )
+
+    st.stop()
+
+selected_color = selected_color.upper()
+
+# Normalize 3-digit HEX
+if len(selected_color) == 4:
+    selected_color = (
+        "#"
+        + selected_color[1] * 2
+        + selected_color[2] * 2
+        + selected_color[3] * 2
+    )
+
+# ---------------------------------------------------------
+# CONVERT COLOUR
+# ---------------------------------------------------------
+
+rgb = hex_to_rgb(selected_color)
+hsl = rgb_to_hsl(rgb)
+
+r, g, b = rgb
+h, s, l = hsl
+
+# ---------------------------------------------------------
+# MAIN COLOUR DISPLAY
+# ---------------------------------------------------------
+
+st.subheader("Selected Colour")
+
+col1, col2 = st.columns([1, 2])
+
+with col1:
+
+    st.markdown(
+        f"""
+        <div style="
+            background-color:{selected_color};
+            height:220px;
+            border-radius:20px;
+            border:1px solid #ddd;
+        ">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col2:
+
+    st.markdown("### Colour Values")
+
+    st.code(f"HEX: {selected_color}")
+    st.code(f"RGB: rgb({r}, {g}, {b})")
+    st.code(f"HSL: hsl({h}, {s}%, {l}%)")
+
+# ---------------------------------------------------------
+# MATCHING COLOURS
+# ---------------------------------------------------------
+
+st.divider()
+
+st.subheader("🔍 Closest Matching Colours")
+
+matches = find_matching_colors(selected_color, 6)
+
+columns = st.columns(3)
+
+for index, (name, color_hex, distance) in enumerate(matches):
+
+    with columns[index % 3]:
+
+        similarity = max(
+            0,
+            100 - (distance / 441.67 * 100)
+        )
+
+        st.markdown(
+            f"""
+            <div style="
+                background-color:{color_hex};
+                height:120px;
+                border-radius:15px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:white;
+                font-weight:bold;
+                text-shadow:1px 1px 3px black;
+                margin-bottom:8px;
+            ">
+                {name}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.write(f"**HEX:** `{color_hex}`")
+        st.write(f"**RGB:** `{hex_to_rgb(color_hex)}`")
+        st.write(f"**Similarity:** `{similarity:.1f}%`")
+
+# ---------------------------------------------------------
+# COLOUR PALETTE
+# ---------------------------------------------------------
+
+st.divider()
+
+st.subheader("🌈 Generated Colour Palette")
+
+palette = generate_palette(selected_color)
+
+palette_columns = st.columns(4)
+
+for index, (name, color_hex) in enumerate(palette.items()):
+
+    with palette_columns[index % 4]:
+
+        text_color = (
+            "black"
+            if sum(hex_to_rgb(color_hex)) > 430
+            else "white"
+        )
+
+        st.markdown(
+            f"""
+            <div style="
+                background-color:{color_hex};
+                height:110px;
+                border-radius:15px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:{text_color};
+                font-weight:bold;
+                margin-bottom:8px;
+            ">
+                {name}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.code(color_hex)
+
+# ---------------------------------------------------------
+# COLOUR DATABASE
+# ---------------------------------------------------------
+
+st.divider()
+
+st.subheader("📚 Colour Value Database")
+
+st.write(
+    "Browse the built-in colour database and its HEX, RGB and HSL values."
+)
+
+database_rows = []
+
+for name, color_hex in COLOR_DATABASE.items():
+
+    color_rgb = hex_to_rgb(color_hex)
+    color_hsl = rgb_to_hsl(color_rgb)
+
+    database_rows.append(
+        {
+            "Colour": name,
+            "HEX": color_hex,
+            "RGB": f"rgb{color_rgb}",
+            "HSL": f"hsl{color_hsl}",
+        }
+    )
+
+st.dataframe(
+    database_rows,
+    use_container_width=True,
+    hide_index=True,
+)
+
+# ---------------------------------------------------------
+# FOOTER
+# ---------------------------------------------------------
+
+st.divider()
+
+st.markdown(
+    """
+    <div style="text-align:center;color:#777;">
+        🎨 Colour Matching Tool<br>
+        Built with Python and Streamlit
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
